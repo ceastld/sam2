@@ -1,42 +1,54 @@
-import gradio as gr
 import cv2
+import gradio as gr
 import numpy as np
-SOURCE_VIDEO_PATH = "exp_data/HSID48/face_crop.mp4"
 
+# Global variables to store points and their labels
+points = []  # list to store coordinates
+labels = []  # list to store labels
 
-# 假设 sam2 是你要使用的处理视频的函数
-def sam2(video_path):
-    # 这里是一个示例，你需要替换成实际的 sam2 处理逻辑
-    cap = cv2.VideoCapture(video_path)
-    frames = []
-    
-    while cap.isOpened():
-        ret, frame = cap.read()
-        if not ret:
-            break
-        # 假设 sam2 处理的是视频帧，进行一些图像处理操作
-        # 这里只是一个简单的例子
-        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        frames.append(frame)
-    
-    cap.release()
+# Function to handle clicks and labeling
+def label_image(image, x, y):
+    global points, labels
 
-    # 假设我们返回的是处理过的所有帧
-    return frames
+    # Toggle label between 1 and 0
+    if len(labels) == 0 or labels[-1] == 1:
+        label = 0
+    else:
+        label = 1
 
-# 定义 Gradio 接口
-def process_video(video):
-    result_frames = sam2(video.name)
-    return result_frames
+    # Add point and label
+    points.append([x, y])
+    labels.append(label)
 
-# 创建 Gradio 界面
+    # Convert image to RGB (Gradio works with RGB images)
+    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+    # Draw the point on the image
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    cv2.putText(image, f'{label}', (x + 5, y - 5), font, 0.8, (0, 0, 255), 2)
+    cv2.circle(image, (x, y), 5, (0, 0, 255), -1)
+
+    # Return the modified image and the current points and labels
+    return image, f"Points: {points}\nLabels: {labels}"
+
+# Load image
+image_path = 'test.png'  # Replace with your image path
+image = cv2.imread(image_path)
+
+# Check if the image is loaded properly
+if image is None:
+    print("Error: Image not found!")
+    exit()
+
+# Convert image to RGB (Gradio works with RGB images)
+image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+# Gradio Interface
 iface = gr.Interface(
-    fn=process_video,
-    inputs=gr.Video(),  # 允许用户上传视频文件，移除 type="file"
-    outputs=gr.Gallery(label="Processed Video Frames"),  # 显示处理后的帧
-    title="Video Processing with SAM2",
-    description="Upload a video to process with SAM2."
+    fn=label_image, 
+    inputs=[gr.Image(type="numpy"), gr.Slider(minimum=0, maximum=image.shape[1]-1, step=1, label="X position"), gr.Slider(minimum=0, maximum=image.shape[0]-1, step=1, label="Y position")],
+    outputs=[gr.Image(type="numpy"), gr.Textbox()],
+    live=True
 )
 
-# 启动界面
 iface.launch()
